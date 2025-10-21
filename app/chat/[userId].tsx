@@ -19,10 +19,12 @@ import { generateMockMessages } from '@/data/mockMessages';
 import { getMockUser } from '@/data/mockUsers';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export default function ChatScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
+  const { isSubscribed } = useSubscription();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [user, setUser] = useState(getMockUser(userId || ''));
@@ -85,6 +87,18 @@ export default function ChatScreen() {
   };
 
   const handleVoiceCall = () => {
+    if (!isSubscribed) {
+      Alert.alert(
+        'Premium Feature',
+        'Voice calls require a Premium subscription. Subscribe to send friend requests and unlock voice calls.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Plans', onPress: () => router.push('/subscription') },
+        ]
+      );
+      return;
+    }
+
     if (user?.isFriend) {
       Alert.alert('Voice Call', 'Voice calling feature coming soon!');
     } else {
@@ -100,6 +114,18 @@ export default function ChatScreen() {
   };
 
   const handleVideoCall = () => {
+    if (!isSubscribed) {
+      Alert.alert(
+        'Premium Feature',
+        'Video calls require a Premium subscription. Subscribe to send friend requests and unlock video calls.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Plans', onPress: () => router.push('/subscription') },
+        ]
+      );
+      return;
+    }
+
     if (user?.isFriend) {
       Alert.alert('Video Call', 'Video calling feature coming soon!');
     } else {
@@ -115,6 +141,18 @@ export default function ChatScreen() {
   };
 
   const handleFriendRequest = () => {
+    if (!isSubscribed) {
+      Alert.alert(
+        'Premium Feature',
+        'Sending friend requests requires a Premium subscription. Upgrade to unlock this feature.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Plans', onPress: () => router.push('/subscription') },
+        ]
+      );
+      return;
+    }
+
     Alert.alert('Friend Request Sent', 'Your friend request has been sent!');
     if (user) {
       setUser({ ...user, isFriend: true });

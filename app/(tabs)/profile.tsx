@@ -14,9 +14,11 @@ import { Stack, useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { isSubscribed } = useSubscription();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [autoAcceptFriends, setAutoAcceptFriends] = useState(false);
@@ -60,12 +62,17 @@ export default function ProfileScreen() {
     </View>
   );
 
-  const renderActionItem = (icon: string, title: string, onPress: () => void, danger?: boolean) => (
+  const renderActionItem = (icon: string, title: string, onPress: () => void, danger?: boolean, badge?: string) => (
     <TouchableOpacity style={styles.actionItem} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.settingIcon}>
         <IconSymbol name={icon} size={24} color={danger ? colors.error : colors.primary} />
       </View>
       <Text style={[styles.actionTitle, danger && styles.actionTitleDanger]}>{title}</Text>
+      {badge && (
+        <View style={styles.premiumBadge}>
+          <Text style={styles.premiumBadgeText}>{badge}</Text>
+        </View>
+      )}
       <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
     </TouchableOpacity>
   );
@@ -101,6 +108,27 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.profileName}>Anonymous User</Text>
           <Text style={styles.profileId}>ID: #USER-{Math.floor(Math.random() * 10000)}</Text>
+          {isSubscribed && (
+            <View style={styles.subscriptionBadge}>
+              <IconSymbol name="star.fill" size={16} color={colors.primary} />
+              <Text style={styles.subscriptionBadgeText}>Premium Member</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Subscription</Text>
+          <View style={styles.card}>
+            {renderActionItem(
+              'star.fill',
+              isSubscribed ? 'Manage Subscription' : 'Upgrade to Premium',
+              () => {
+                router.push('/subscription');
+              },
+              false,
+              isSubscribed ? undefined : 'UNLOCK'
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -239,6 +267,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
+  subscriptionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 12,
+    gap: 6,
+  },
+  subscriptionBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   section: {
     marginBottom: 24,
   },
@@ -296,6 +339,19 @@ const styles = StyleSheet.create({
   },
   actionTitleDanger: {
     color: colors.error,
+  },
+  premiumBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.card,
+    letterSpacing: 0.5,
   },
   divider: {
     height: 1,

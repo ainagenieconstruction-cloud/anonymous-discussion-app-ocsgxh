@@ -16,12 +16,13 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { AnonymousUser } from '@/types/User';
 import { generateMockUsers } from '@/data/mockUsers';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export default function DiscoverScreen() {
-  const router = useRouter();
   const [users, setUsers] = useState<AnonymousUser[]>([]);
-  const [radius, setRadius] = useState<number>(10);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [radius, setRadius] = useState(10);
+  const router = useRouter();
+  const { isSubscribed } = useSubscription();
 
   useEffect(() => {
     loadUsers();
@@ -29,18 +30,15 @@ export default function DiscoverScreen() {
 
   const loadUsers = () => {
     const mockUsers = generateMockUsers(20);
-    const filteredUsers = mockUsers.filter(user => user.distance <= radius);
-    setUsers(filteredUsers);
+    setUsers(mockUsers);
   };
-
-  const filteredUsers = users.filter(user =>
-    user.anonymousName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'online':
         return colors.online;
+      case 'offline':
+        return colors.offline;
       case 'busy':
         return colors.warning;
       default:
@@ -50,6 +48,35 @@ export default function DiscoverScreen() {
 
   const handleUserPress = (user: AnonymousUser) => {
     router.push(`/chat/${user.id}`);
+  };
+
+  const handleAddFriend = (user: AnonymousUser) => {
+    if (!isSubscribed) {
+      Alert.alert(
+        'Premium Feature',
+        'Sending friend requests requires a Premium subscription. Upgrade to unlock voice and video calls.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Plans', onPress: () => router.push('/subscription') },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Send Friend Request',
+      `Send a friend request to ${user.anonymousName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: () => {
+            console.log('Friend request sent to:', user.id);
+            Alert.alert('Success', 'Friend request sent!');
+          },
+        },
+      ]
+    );
   };
 
   const renderUser = ({ item }: { item: AnonymousUser }) => (
@@ -62,84 +89,77 @@ export default function DiscoverScreen() {
         <Text style={styles.avatarText}>
           {item.anonymousName.split(' ').map(word => word[0]).join('')}
         </Text>
-      </View>
-      
-      <View style={styles.userInfo}>
-        <View style={styles.userHeader}>
-          <Text style={styles.userName}>{item.anonymousName}</Text>
-          <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
-        </View>
-        <Text style={styles.distance}>
-          {item.distance < 1 
-            ? `${Math.round(item.distance * 1000)}m away` 
-            : `${item.distance.toFixed(1)}km away`}
-        </Text>
-        {item.isFriend && (
-          <View style={styles.friendBadge}>
-            <IconSymbol name="checkmark.circle.fill" size={14} color={colors.success} />
-            <Text style={styles.friendBadgeText}>Friend</Text>
-          </View>
-        )}
+        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
       </View>
 
-      <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{item.anonymousName}</Text>
+        <Text style={styles.distance}>
+          {item.distance < 1
+            ? `${Math.round(item.distance * 1000)}m away`
+            : `${item.distance.toFixed(1)}km away`}
+        </Text>
+        <Text style={styles.status}>
+          {item.status === 'online' ? 'Available to chat' : 'Last seen recently'}
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={(e) => {
+          e.stopPropagation();
+          handleAddFriend(item);
+        }}
+      >
+        <IconSymbol name="person.badge.plus" size={24} color={colors.primary} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.searchContainer}>
-        <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search users..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <View style={styles.radiusContainer}>
-        <View style={styles.radiusHeader}>
+    <View style={styles.headerContainer}>
+      <View style={styles.radiusControl}>
+        <IconSymbol name="location.fill" size={24} color={colors.primary} />
+        <View style={styles.radiusInfo}>
           <Text style={styles.radiusLabel}>Search Radius</Text>
           <Text style={styles.radiusValue}>{radius} km</Text>
         </View>
         <View style={styles.radiusButtons}>
-          {[5, 10, 25, 50].map(value => (
-            <TouchableOpacity
-              key={value}
-              style={[
-                styles.radiusButton,
-                radius === value && styles.radiusButtonActive,
-              ]}
-              onPress={() => setRadius(value)}
-            >
-              <Text
-                style={[
-                  styles.radiusButtonText,
-                  radius === value && styles.radiusButtonTextActive,
-                ]}
-              >
-                {value}km
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            style={styles.radiusButton}
+            onPress={() => setRadius(Math.max(1, radius - 5))}
+          >
+            <IconSymbol name="minus" size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.radiusButton}
+            onPress={() => setRadius(Math.min(100, radius + 5))}
+          >
+            <IconSymbol name="plus" size={16} color={colors.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsText}>
-          {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} nearby
-        </Text>
-        <View style={styles.resultsActions}>
-          <TouchableOpacity onPress={() => router.push('/location-note')} style={styles.mapNote}>
-            <IconSymbol name="map" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={loadUsers}>
-            <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {!isSubscribed && (
+        <TouchableOpacity
+          style={styles.premiumPromoBanner}
+          onPress={() => router.push('/subscription')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.premiumPromoContent}>
+            <IconSymbol name="star.fill" size={24} color={colors.primary} />
+            <View style={styles.premiumPromoText}>
+              <Text style={styles.premiumPromoTitle}>Unlock Premium Features</Text>
+              <Text style={styles.premiumPromoSubtitle}>
+                Send friend requests and enable voice/video calls
+              </Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.primary} />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      <Text style={styles.sectionTitle}>Nearby Users</Text>
     </View>
   );
 
@@ -153,16 +173,22 @@ export default function DiscoverScreen() {
           }}
         />
       )}
-      
+
+      {Platform.OS !== 'ios' && (
+        <View style={styles.androidHeader}>
+          <Text style={styles.androidHeaderTitle}>Discover</Text>
+        </View>
+      )}
+
       <FlatList
-        data={filteredUsers}
+        data={users}
         renderItem={renderUser}
         keyExtractor={item => item.id}
-        ListHeaderComponent={renderHeader}
         contentContainerStyle={[
           styles.listContent,
           Platform.OS !== 'ios' && styles.listContentAndroid,
         ]}
+        ListHeaderComponent={renderHeader}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
@@ -170,6 +196,16 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
+  androidHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: colors.background,
+  },
+  androidHeaderTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.text,
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -177,91 +213,77 @@ const styles = StyleSheet.create({
   listContentAndroid: {
     paddingBottom: 100,
   },
-  header: {
+  headerContainer: {
     marginBottom: 16,
   },
-  searchContainer: {
+  radiusControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  radiusContainer: {
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
-    elevation: 2,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
   },
-  radiusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  radiusInfo: {
+    flex: 1,
+    marginLeft: 12,
   },
   radiusLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 2,
   },
   radiusValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.text,
   },
   radiusButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   radiusButton: {
-    flex: 1,
-    paddingVertical: 10,
-    marginHorizontal: 4,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.background,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  radiusButtonActive: {
-    backgroundColor: colors.primary,
+  premiumPromoBanner: {
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
-  radiusButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  premiumPromoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumPromoText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  premiumPromoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
   },
-  radiusButtonTextActive: {
-    color: colors.card,
-  },
-  resultsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  resultsText: {
-    fontSize: 14,
-    fontWeight: '600',
+  premiumPromoSubtitle: {
+    fontSize: 13,
     color: colors.textSecondary,
+    lineHeight: 18,
   },
-  resultsActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  mapNote: {
-    padding: 4,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
   },
   userCard: {
     flexDirection: 'row',
@@ -280,49 +302,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+    position: 'relative',
   },
   avatarText: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.card,
   },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: colors.card,
+  },
   userInfo: {
     flex: 1,
-  },
-  userHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   userName: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginRight: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  distance: {
-    fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
-  friendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: colors.background,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  distance: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 2,
   },
-  friendBadgeText: {
+  status: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.success,
-    marginLeft: 4,
+    color: colors.textSecondary,
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

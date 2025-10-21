@@ -7,6 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -14,9 +15,11 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { FriendRequest } from '@/types/User';
 import { generateMockUsers } from '@/data/mockUsers';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
+  const { isSubscribed } = useSubscription();
   const [requests, setRequests] = useState<FriendRequest[]>([]);
 
   useEffect(() => {
@@ -35,8 +38,21 @@ export default function FriendRequestsScreen() {
   };
 
   const handleAccept = (requestId: string) => {
+    if (!isSubscribed) {
+      Alert.alert(
+        'Premium Feature',
+        'Accepting friend requests requires a Premium subscription. Upgrade to unlock this feature.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Plans', onPress: () => router.push('/subscription') },
+        ]
+      );
+      return;
+    }
+
     setRequests(requests.filter(req => req.id !== requestId));
     console.log('Accepted friend request:', requestId);
+    Alert.alert('Friend Request Accepted', 'You can now make voice and video calls with this user!');
   };
 
   const handleReject = (requestId: string) => {
@@ -98,8 +114,44 @@ export default function FriendRequestsScreen() {
       <Text style={styles.emptyStateText}>
         When someone sends you a friend request, it will appear here.
       </Text>
+      {!isSubscribed && (
+        <TouchableOpacity
+          style={styles.upgradeButton}
+          onPress={() => router.push('/subscription')}
+          activeOpacity={0.8}
+        >
+          <IconSymbol name="star.fill" size={20} color={colors.card} />
+          <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
+
+  const renderHeader = () => {
+    if (!isSubscribed && requests.length > 0) {
+      return (
+        <View style={styles.premiumBanner}>
+          <View style={styles.premiumBannerContent}>
+            <IconSymbol name="lock.fill" size={24} color={colors.primary} />
+            <View style={styles.premiumBannerText}>
+              <Text style={styles.premiumBannerTitle}>Premium Required</Text>
+              <Text style={styles.premiumBannerSubtitle}>
+                Upgrade to accept friend requests and unlock voice/video calls
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.premiumBannerButton}
+            onPress={() => router.push('/subscription')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.premiumBannerButtonText}>Upgrade</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return null;
+  };
 
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
@@ -119,6 +171,7 @@ export default function FriendRequestsScreen() {
           styles.listContent,
           requests.length === 0 && styles.emptyListContent,
         ]}
+        ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
       />
@@ -133,6 +186,46 @@ const styles = StyleSheet.create({
   },
   emptyListContent: {
     flexGrow: 1,
+  },
+  premiumBanner: {
+    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  premiumBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  premiumBannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  premiumBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  premiumBannerSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  premiumBannerButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  premiumBannerButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.card,
   },
   requestCard: {
     flexDirection: 'row',
@@ -210,5 +303,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
+    marginBottom: 24,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    gap: 8,
+    boxShadow: '0px 4px 12px rgba(98, 0, 238, 0.3)',
+    elevation: 4,
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.card,
   },
 });
