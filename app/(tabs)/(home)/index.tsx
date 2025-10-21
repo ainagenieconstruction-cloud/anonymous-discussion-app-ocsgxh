@@ -1,161 +1,328 @@
-import React from "react";
-import { Stack, Link } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View, Text, Alert, Platform } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { GlassView } from "expo-glass-effect";
-import { useTheme } from "@react-navigation/native";
 
-const ICON_COLOR = "#007AFF";
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+  Alert,
+} from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import { colors, commonStyles } from '@/styles/commonStyles';
+import { AnonymousUser } from '@/types/User';
+import { generateMockUsers } from '@/data/mockUsers';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function HomeScreen() {
-  const theme = useTheme();
-  const modalDemos = [
-    {
-      title: "Standard Modal",
-      description: "Full screen modal presentation",
-      route: "/modal",
-      color: "#007AFF",
-    },
-    {
-      title: "Form Sheet",
-      description: "Bottom sheet with detents and grabber",
-      route: "/formsheet",
-      color: "#34C759",
-    },
-    {
-      title: "Transparent Modal",
-      description: "Overlay without obscuring background",
-      route: "/transparent-modal",
-      color: "#FF9500",
+export default function DiscoverScreen() {
+  const router = useRouter();
+  const [users, setUsers] = useState<AnonymousUser[]>([]);
+  const [radius, setRadius] = useState<number>(10);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadUsers();
+  }, [radius]);
+
+  const loadUsers = () => {
+    const mockUsers = generateMockUsers(20);
+    const filteredUsers = mockUsers.filter(user => user.distance <= radius);
+    setUsers(filteredUsers);
+  };
+
+  const filteredUsers = users.filter(user =>
+    user.anonymousName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online':
+        return colors.online;
+      case 'busy':
+        return colors.warning;
+      default:
+        return colors.offline;
     }
-  ];
+  };
 
-  const renderModalDemo = ({ item }: { item: (typeof modalDemos)[0] }) => (
-    <GlassView style={[
-      styles.demoCard,
-      Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-    ]} glassEffectStyle="regular">
-      <View style={[styles.demoIcon, { backgroundColor: item.color }]}>
-        <IconSymbol name="square.grid.3x3" color="white" size={24} />
+  const handleUserPress = (user: AnonymousUser) => {
+    router.push(`/chat/${user.id}`);
+  };
+
+  const renderUser = ({ item }: { item: AnonymousUser }) => (
+    <TouchableOpacity
+      style={styles.userCard}
+      onPress={() => handleUserPress(item)}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.avatar, { backgroundColor: item.avatar }]}>
+        <Text style={styles.avatarText}>
+          {item.anonymousName.split(' ').map(word => word[0]).join('')}
+        </Text>
       </View>
-      <View style={styles.demoContent}>
-        <Text style={[styles.demoTitle, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.demoDescription, { color: theme.dark ? '#98989D' : '#666' }]}>{item.description}</Text>
+      
+      <View style={styles.userInfo}>
+        <View style={styles.userHeader}>
+          <Text style={styles.userName}>{item.anonymousName}</Text>
+          <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+        </View>
+        <Text style={styles.distance}>
+          {item.distance < 1 
+            ? `${Math.round(item.distance * 1000)}m away` 
+            : `${item.distance.toFixed(1)}km away`}
+        </Text>
+        {item.isFriend && (
+          <View style={styles.friendBadge}>
+            <IconSymbol name="checkmark.circle.fill" size={14} color={colors.success} />
+            <Text style={styles.friendBadgeText}>Friend</Text>
+          </View>
+        )}
       </View>
-      <Link href={item.route as any} asChild>
-        <Pressable>
-          <GlassView style={[
-            styles.tryButton,
-            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }
-          ]} glassEffectStyle="clear">
-            <Text style={[styles.tryButtonText, { color: theme.colors.primary }]}>Try It</Text>
-          </GlassView>
-        </Pressable>
-      </Link>
-    </GlassView>
+
+      <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
   );
 
-  const renderHeaderRight = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol name="plus" color={theme.colors.primary} />
-    </Pressable>
-  );
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.searchContainer}>
+        <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search users..."
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
 
-  const renderHeaderLeft = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol
-        name="gear"
-        color={theme.colors.primary}
-      />
-    </Pressable>
+      <View style={styles.radiusContainer}>
+        <View style={styles.radiusHeader}>
+          <Text style={styles.radiusLabel}>Search Radius</Text>
+          <Text style={styles.radiusValue}>{radius} km</Text>
+        </View>
+        <View style={styles.radiusButtons}>
+          {[5, 10, 25, 50].map(value => (
+            <TouchableOpacity
+              key={value}
+              style={[
+                styles.radiusButton,
+                radius === value && styles.radiusButtonActive,
+              ]}
+              onPress={() => setRadius(value)}
+            >
+              <Text
+                style={[
+                  styles.radiusButtonText,
+                  radius === value && styles.radiusButtonTextActive,
+                ]}
+              >
+                {value}km
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.resultsHeader}>
+        <Text style={styles.resultsText}>
+          {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} nearby
+        </Text>
+        <View style={styles.resultsActions}>
+          <TouchableOpacity onPress={() => router.push('/location-note')} style={styles.mapNote}>
+            <IconSymbol name="map" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={loadUsers}>
+            <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 
   return (
-    <>
+    <SafeAreaView style={commonStyles.container} edges={['top']}>
       {Platform.OS === 'ios' && (
         <Stack.Screen
           options={{
-            title: "Building the app...",
-            headerRight: renderHeaderRight,
-            headerLeft: renderHeaderLeft,
+            title: 'Discover',
+            headerLargeTitle: true,
           }}
         />
       )}
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <FlatList
-          data={modalDemos}
-          renderItem={renderModalDemo}
-          keyExtractor={(item) => item.route}
-          contentContainerStyle={[
-            styles.listContainer,
-            Platform.OS !== 'ios' && styles.listContainerWithTabBar
-          ]}
-          contentInsetAdjustmentBehavior="automatic"
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-    </>
+      
+      <FlatList
+        data={filteredUsers}
+        renderItem={renderUser}
+        keyExtractor={item => item.id}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={[
+          styles.listContent,
+          Platform.OS !== 'ios' && styles.listContentAndroid,
+        ]}
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // backgroundColor handled dynamically
-  },
-  listContainer: {
-    paddingVertical: 16,
+  listContent: {
     paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  listContainerWithTabBar: {
-    paddingBottom: 100, // Extra padding for floating tab bar
+  listContentAndroid: {
+    paddingBottom: 100,
   },
-  demoCard: {
+  header: {
+    marginBottom: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  radiusContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
+    elevation: 2,
+  },
+  radiusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  radiusLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  radiusValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  radiusButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  radiusButton: {
+    flex: 1,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  radiusButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  radiusButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  radiusButtonTextActive: {
+    color: colors.card,
+  },
+  resultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  resultsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  resultsActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mapNote: {
+    padding: 4,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
   },
-  demoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  demoContent: {
+  avatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.card,
+  },
+  userInfo: {
     flex: 1,
   },
-  demoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  userHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
-    // color handled dynamically
   },
-  demoDescription: {
-    fontSize: 14,
-    lineHeight: 18,
-    // color handled dynamically
-  },
-  headerButtonContainer: {
-    padding: 6,
-  },
-  tryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  tryButtonText: {
-    fontSize: 14,
+  userName: {
+    fontSize: 16,
     fontWeight: '600',
-    // color handled dynamically
+    color: colors.text,
+    marginRight: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  distance: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  friendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  friendBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.success,
+    marginLeft: 4,
   },
 });

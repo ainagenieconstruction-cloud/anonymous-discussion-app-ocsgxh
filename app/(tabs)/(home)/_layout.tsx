@@ -1,16 +1,15 @@
-import { Platform } from 'react-native';
+
 import { Stack } from 'expo-router';
+import React from 'react';
+import { Platform } from 'react-native';
 
 export default function HomeLayout() {
   return (
-    <Stack>
-      <Stack.Screen
-        name="index"
-        options={{
-          headerShown: Platform.OS === 'ios', // Show header on iOS with NativeTabs, hide on Android/Web
-          title: 'Home'
-        }}
-      />
-    </Stack>
+    <Stack
+      screenOptions={{
+        headerShown: Platform.OS === 'ios',
+        animation: 'default',
+      }}
+    />
   );
 }
